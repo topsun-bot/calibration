@@ -50,7 +50,7 @@
 
 ```bash
 conda activate yolo
-cd /home/gy/code/goat_demo/calibate
+cd calibration/calibate
 python tools/list_cameras.py
 ```
 
@@ -75,7 +75,7 @@ python tools/list_cameras.py
 
 ```bash
 conda activate yolo
-cd /home/gy/code/goat_demo/calibate
+cd calibration/calibate
 
 python tools/calibrate_usb_intrinsics.py \
   --device 10 \
@@ -139,7 +139,7 @@ python auto_calibrate.py --network eth0 \
 
 ```bash
 conda activate yolo
-cd /home/gy/code/goat_demo
+cd calibration
 python -m pytest tests/test_calib_camera.py -v
 ```
 

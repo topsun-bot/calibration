@@ -335,6 +335,199 @@ def _draw_info_card(ax, report: Any):
             break
 
 
+def plot_coordinate_frames(
+    T_cam2base: np.ndarray,
+    T_g2b_list: list[np.ndarray] | None = None,
+    T_t2c_list: list[np.ndarray] | None = None,
+    save_path: Path | None = None,
+    title: str = "Hand-Eye Calibration Coordinate Frames",
+) -> Path | None:
+    """3D 坐标系可视化（MoveIt2 Planning Scene 风格）。
+
+    绘制 base、camera、gripper（多帧）、target 四种坐标系的空间关系，
+    帮助直观理解标定结果的几何含义。
+
+    参数:
+        T_cam2base: 4x4 标定结果 (cam → base)
+        T_g2b_list: 各帧 gripper-to-base 变换列表（可选）
+        T_t2c_list: 各帧 target-to-camera 变换列表（可选）
+        save_path: 保存路径（默认不保存，仅返回 fig）
+        title: 图标题
+    """
+    if not HAS_MPL:
+        return None
+
+    _setup_chinese_fonts()
+    fig = plt.figure(figsize=(12, 9))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_title(title, fontsize=14, fontweight="bold")
+
+    def _draw_frame(ax, T: np.ndarray, label: str, scale: float = 0.08, lw: float = 2.0):
+        """绘制坐标系三轴 (X红 Y绿 Z蓝)。"""
+        origin = T[:3, 3]
+        R = T[:3, :3]
+        colors = ["#e74c3c", "#2ecc71", "#3498db"]  # R G B
+        axis_labels = ["X", "Y", "Z"]
+        for i, (c, al) in enumerate(zip(colors, axis_labels)):
+            end = origin + R[:, i] * scale
+            ax.plot3D(*zip(origin, end), color=c, linewidth=lw)
+        ax.text(*origin, f" {label}", fontsize=8, color="#2c3e50")
+
+    # Base frame (origin)
+    T_base = np.eye(4)
+    _draw_frame(ax, T_base, "Base", scale=0.12, lw=3.0)
+
+    # Camera frame
+    _draw_frame(ax, T_cam2base, "Camera", scale=0.10, lw=2.5)
+
+    # 画 camera → base 的连线
+    ax.plot3D(*zip(T_base[:3, 3], T_cam2base[:3, 3]),
+              color="#95a5a6", linewidth=1, linestyle="--", alpha=0.6)
+
+    # Gripper frames (if provided)
+    if T_g2b_list:
+        for i, T_g2b in enumerate(T_g2b_list[:8]):  # 最多显示 8 个
+            alpha = 0.4 + 0.6 * (i / max(len(T_g2b_list) - 1, 1))
+            _draw_frame(ax, T_g2b, f"G{i}" if i < 3 else "", scale=0.05, lw=1.0)
+
+    # Target frames in base (if provided)
+    if T_t2c_list and T_cam2base is not None:
+        for i, T_t2c in enumerate(T_t2c_list[:8]):
+            T_target_base = T_cam2base @ T_t2c
+            _draw_frame(ax, T_target_base, f"T{i}" if i < 3 else "", scale=0.04, lw=0.8)
+
+    # 美化
+    ax.set_xlabel("X (m)", fontsize=10)
+    ax.set_ylabel("Y (m)", fontsize=10)
+    ax.set_zlabel("Z (m)", fontsize=10)
+    ax.set_box_aspect([1, 1, 1])
+
+    # 添加图例说明
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color="#e74c3c", lw=2, label="X-axis"),
+        Line2D([0], [0], color="#2ecc71", lw=2, label="Y-axis"),
+        Line2D([0], [0], color="#3498db", lw=2, label="Z-axis"),
+    ]
+    ax.legend(handles=legend_elements, loc="upper left", fontsize=8)
+
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        print(f"[calib_visualizer] 坐标系图已保存 -> {save_path}")
+        return save_path
+    plt.close(fig)
+    return None
+
+
+def plot_reprojection_errors(
+    per_sample_errors_px: list[float],
+    save_path: Path | None = None,
+    title: str = "Per-Sample Reprojection Error",
+) -> Path | None:
+    """重投影误差分布图（easy_handeye2 evaluator 风格）。
+
+    参数:
+        per_sample_errors_px: 每样本 RMS 重投影误差 (像素)
+        save_path: 保存路径
+    """
+    if not HAS_MPL or not per_sample_errors_px:
+        return None
+
+    _setup_chinese_fonts()
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle(title, fontsize=14, fontweight="bold")
+
+    n = len(per_sample_errors_px)
+    errors = np.array(per_sample_errors_px)
+    mean_err = float(errors.mean())
+    std_err = float(errors.std())
+
+    # 左: 柱状图
+    colors = ["#2ecc71" if e < mean_err + std_err else "#e67e22" if e < mean_err + 2 * std_err else "#e74c3c"
+              for e in errors]
+    ax1.bar(range(1, n + 1), errors, color=colors, alpha=0.8, edgecolor="#2c3e50", linewidth=0.5)
+    ax1.axhline(mean_err, color="#3498db", linestyle="--", linewidth=1.5, label=f"Mean: {mean_err:.2f} px")
+    ax1.axhline(mean_err + 2 * std_err, color="#e74c3c", linestyle=":", linewidth=1.0, label=f"Mean+2σ: {mean_err + 2 * std_err:.2f} px")
+    ax1.set_xlabel("Sample Index", fontsize=10)
+    ax1.set_ylabel("RMS Reproj. Error (px)", fontsize=10)
+    ax1.set_title("Per-Sample Error", fontsize=11)
+    ax1.legend(fontsize=9)
+    ax1.grid(True, alpha=0.3)
+
+    # 右: 直方图
+    ax2.hist(errors, bins=min(n, 20), color="#3498db", alpha=0.7, edgecolor="white")
+    ax2.axvline(mean_err, color="#e74c3c", linestyle="--", linewidth=2, label=f"Mean: {mean_err:.2f} px")
+    ax2.set_xlabel("Reproj. Error (px)", fontsize=10)
+    ax2.set_ylabel("Count", fontsize=10)
+    ax2.set_title("Error Distribution", fontsize=11)
+    ax2.legend(fontsize=9)
+    ax2.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        print(f"[calib_visualizer] 重投影误差图已保存 -> {save_path}")
+        return save_path
+    plt.close(fig)
+    return None
+
+
+def plot_sim_gt_comparison(
+    result,  # SimCalibrationResult
+    save_path: Path | None = None,
+) -> Path | None:
+    """仿真标定 GT 对比可视化。
+
+    显示各算法的 GT 平移/旋转误差对比柱状图。
+    """
+    if not HAS_MPL:
+        return None
+
+    _setup_chinese_fonts()
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle(f"Sim Calibration GT Comparison — Quality: {result.quality_label}",
+                 fontsize=14, fontweight="bold")
+
+    names = [a.name for a in result.per_algorithm]
+    t_errors = [a.translation_error_mm for a in result.per_algorithm]
+    r_errors = [a.rotation_error_deg for a in result.per_algorithm]
+    weights = [a.weight for a in result.per_algorithm]
+
+    # 颜色按权重
+    max_w = max(weights) if weights else 1.0
+    colors = [plt.cm.viridis(w / max_w) for w in weights]
+
+    # 左: 平移误差
+    bars1 = ax1.bar(names, t_errors, color=colors, alpha=0.85, edgecolor="#2c3e50")
+    ax1.axhline(result.translation_error_mm, color="#e74c3c", linestyle="--",
+                linewidth=2, label=f"Fused: {result.translation_error_mm:.2f} mm")
+    ax1.set_ylabel("Translation Error (mm)", fontsize=10)
+    ax1.set_title("Translation GT Error per Algorithm", fontsize=11)
+    ax1.legend(fontsize=9)
+    ax1.grid(True, alpha=0.3, axis="y")
+
+    # 右: 旋转误差
+    bars2 = ax2.bar(names, r_errors, color=colors, alpha=0.85, edgecolor="#2c3e50")
+    ax2.axhline(result.rotation_error_deg, color="#e74c3c", linestyle="--",
+                linewidth=2, label=f"Fused: {result.rotation_error_deg:.3f}°")
+    ax2.set_ylabel("Rotation Error (deg)", fontsize=10)
+    ax2.set_title("Rotation GT Error per Algorithm", fontsize=11)
+    ax2.legend(fontsize=9)
+    ax2.grid(True, alpha=0.3, axis="y")
+
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        print(f"[calib_visualizer] GT对比图已保存 -> {save_path}")
+        return save_path
+    plt.close(fig)
+    return None
+
+
 def _reconstruct_verification_positions(
     report: Any, data_dir: Path | None
 ) -> np.ndarray | None:

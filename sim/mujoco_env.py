@@ -23,17 +23,18 @@ from common.d1_fk import joint_angles_to_robot_pose, load_d1_fk  # noqa: E402
 from common.synthetic_board import render_board_for_robot_pose  # noqa: E402
 from common.transforms import rt_to_homogeneous  # noqa: E402
 
-# 与 auto_collect.DEFAULT_MOCK_T_CAM_BASE 一致
-DEFAULT_SIM_T_CAM_BASE = np.eye(4)
-DEFAULT_SIM_T_CAM_BASE[:3, :3] = np.array(
+# T_cam2base: 相机在基座系 [0.45, 0.0, 0.80] 位置，俯视工作台。
+# 语义：p_base = T_cam_base @ p_cam（相机坐标 → 基座坐标）
+# 渲染：T_t2c = inv(T_cam_base) @ T_g2b = T_base2cam @ T_g2b （正 Z，几何一致）
+DEFAULT_SIM_T_CAM_BASE = np.array(
     [
-        [0.956, -0.045, 0.290],
-        [0.0, 0.988, 0.154],
-        [-0.294, -0.147, 0.944],
+        [0.0, 0.8637789, -0.50387103, 0.45],
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, -0.50387103, -0.8637789, 0.80],
+        [0.0, 0.0, 0.0, 1.0],
     ],
     dtype=np.float64,
 )
-DEFAULT_SIM_T_CAM_BASE[:3, 3] = [0.30, 0.15, 0.60]
 
 # 仿真相机内参（与 mock 一致）
 SIM_CAMERA_MATRIX = np.array(

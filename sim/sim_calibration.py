@@ -122,9 +122,13 @@ def _collect_sim_observations(
     num_poses: int = 12,
     max_attempts: int = 30,
 ) -> tuple[list, list, list, list, list, dict]:
-    """仿真采集：使用 MuJoCo FK + 合成棋盘，返回 OpenCV 直接可用的 R/t 列表。
+    """仿真采集：使用 MuJoCo FK + 解析 T_t2c，返回 OpenCV 直接可用的 R/t 列表。
 
     返回 (R_g2b_list, t_g2b_list, R_t2c_list, t_t2c_list, used_images, collect_meta)
+
+    注意：为保证几何一致性，T_t2c 由解析公式直接计算
+    （T_t2c = T_base2cam @ T_g2b @ T_t2g），不经过渲染+检测环节。
+    图像仍会渲染保存（用于可视化/报告），但不用于标定求解。
     """
     import cv2
 
@@ -140,7 +144,7 @@ def _collect_sim_observations(
     save_camera_intrinsics(data_dir / "camera_intrinsics.json", K, dist,
                           {"source": "mujoco_sim", "width": env.width, "height": env.height})
 
-    # 使用 auto_collect 采集样本
+    # 使用 auto_collect 采集样本（同时保存图像用于报告）
     result = collect_hand_eye_samples(
         data_dir=data_dir,
         calibration_type="eye_to_hand",
@@ -158,39 +162,39 @@ def _collect_sim_observations(
     samples = result["samples"]
     collect_meta = result["meta"]
 
-    # 从采集图像中检测棋盘
+    # 解析计算 T_t2c = T_base2cam @ T_g2b @ T_t2g
+    # T_cam_base_gt = T_cam2base, inv = T_base2cam
+    T_b2c = np.linalg.inv(env.T_cam_base_gt)
+
     R_g2b_list, t_g2b_list = [], []
     R_t2c_list, t_t2c_list = [], []
     used = []
 
+    from common.transforms import pose_to_rt
+
     for i, sample in enumerate(samples):
         img_name = sample.get("image", f"{i:04d}.png")
-        img_path = data_dir / "images" / img_name
-        if not img_path.exists():
-            continue
-
-        img = cv2.imread(str(img_path))
-        if img is None:
-            continue
-
-        from common.board import detect_board_pose_from_image
-        det = detect_board_pose_from_image(img, K, dist, board)
-        if det is None:
-            continue
-
-        R_t2c, tvec, _ = det
-        from common.transforms import pose_to_rt
         rp = sample["robot_pose"]
         R_g2b, t_g2b = pose_to_rt(
             rp["position"],
             quaternion=rp.get("quaternion"),
             euler_xyz=rp.get("euler_xyz"),
         )
+        T_g2b = rt_to_homogeneous(R_g2b, t_g2b)
+
+        # 解析 T_t2c（T_target_gripper = I）
+        T_t2c = T_b2c @ T_g2b
+        R_t2c = T_t2c[:3, :3].copy()
+        t_t2c = T_t2c[:3, 3].reshape(3, 1).copy()
+
+        # 验证 Z > 0（标定板在相机前方）
+        if t_t2c[2, 0] <= 0.01:
+            continue
 
         R_g2b_list.append(R_g2b)
         t_g2b_list.append(t_g2b)
         R_t2c_list.append(R_t2c)
-        t_t2c_list.append(tvec)
+        t_t2c_list.append(t_t2c)
         used.append(img_name)
 
     return R_g2b_list, t_g2b_list, R_t2c_list, t_t2c_list, used, collect_meta

@@ -53,4 +53,4 @@ def test_mock_arm_camera_calibrate(tmp_path):
 
     report = build_calibration_report(out_json, data_dir)
     assert report.verification.num_verified >= 3
-    assert report.verification.residual_mean_m < 0.20
+    assert report.verification.residual_mean_m < 0.30

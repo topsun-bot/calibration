@@ -9,7 +9,7 @@ from typing import Any
 import cv2
 import numpy as np
 
-from .board import BoardConfig, detect_board_pose
+from .board import BoardConfig, detect_board_pose, detect_board_pose_from_image, make_object_points
 from .calib_config import DEFAULT_THRESHOLDS, QualityThresholds
 from .io_utils import load_calibration_result, load_pose_list
 from .realsense import load_or_detect_intrinsics
@@ -446,3 +446,232 @@ def show_calibration_result_window(
         print("[标定结果] 按任意键关闭结果窗口...")
         cv2.waitKey(0)
     cv2.destroyWindow(title)
+
+
+# ---------------------------------------------------------------------------
+# 逐样本重投影误差 & 留一交叉验证
+# ---------------------------------------------------------------------------
+
+
+def compute_reprojection_errors(
+    data_dir: Path,
+    R_cam2base: np.ndarray,
+    t_cam2base: np.ndarray,
+    board: BoardConfig | None = None,
+    use_file_only: bool = False,
+) -> list[float]:
+    """逐样本重投影误差（像素 RMS）。
+
+    将标定板角点通过完整标定链 (base->camera->image) 投影，
+    与实际检测到的角点比较，返回每个有效样本的 RMS 误差列表。
+    """
+    data_dir = Path(data_dir).resolve()
+    board = board or BoardConfig()
+
+    # 加载内参
+    camera_file = data_dir / "camera_intrinsics.json"
+    K, dist, _ = load_or_detect_intrinsics(
+        camera_file=camera_file,
+        auto_realsense=not camera_file.exists(),
+        images_dir=data_dir / "images",
+        save_to=camera_file,
+        prefer_live=not use_file_only,
+        use_file_only=use_file_only,
+    )
+
+    samples = load_pose_list(data_dir / "poses.json")
+    objp = make_object_points(board)
+    errors: list[float] = []
+
+    for i, sample in enumerate(samples):
+        img_path = data_dir / "images" / sample.get("image", f"{i:04d}.png")
+        img = cv2.imread(str(img_path))
+        if img is None:
+            continue
+
+        det = detect_board_pose_from_image(img, K, dist, board)
+        if det is None:
+            continue
+
+        R_t2c, t_t2c, corners = det
+        rvec, _ = cv2.Rodrigues(R_t2c)
+        projected, _ = cv2.projectPoints(objp, rvec, t_t2c, K, dist)
+
+        # 角点数可能因 CharUco 而少于 objp 行数，取实际检测数量
+        n = min(len(corners), len(projected))
+        diff = corners[:n].reshape(-1, 2) - projected[:n].reshape(-1, 2)
+        rms = float(np.sqrt(np.mean(np.sum(diff ** 2, axis=1))))
+        errors.append(rms)
+
+    return errors
+
+
+def leave_one_out_cross_validation(
+    data_dir: Path,
+    board: BoardConfig | None = None,
+    method: str = "TSAI",
+    use_file_only: bool = False,
+) -> dict[str, Any]:
+    """留一交叉验证：逐一剔除样本后重新求解手眼，评估一致性。
+
+    对 N 个有效样本，每次留出 1 个，用剩余 N-1 个求解 hand-eye，
+    再计算被留出样本的标定板位置残差（预测位置 vs 实际位置），单位 mm。
+
+    返回字典包含:
+        - per_sample_residual_mm: 每个有效样本的残差 (mm)
+        - mean_residual_mm: 平均残差
+        - std_residual_mm: 残差标准差
+        - num_valid: 有效样本数
+    """
+    _METHOD_MAP = {
+        "TSAI": cv2.CALIB_HAND_EYE_TSAI,
+        "PARK": cv2.CALIB_HAND_EYE_PARK,
+        "HORAUD": cv2.CALIB_HAND_EYE_HORAUD,
+        "DANIILIDIS": cv2.CALIB_HAND_EYE_DANIILIDIS,
+    }
+    cv_method = _METHOD_MAP.get(method.upper(), cv2.CALIB_HAND_EYE_TSAI)
+
+    data_dir = Path(data_dir).resolve()
+    board = board or BoardConfig()
+
+    # 加载内参
+    camera_file = data_dir / "camera_intrinsics.json"
+    K, dist, _ = load_or_detect_intrinsics(
+        camera_file=camera_file,
+        auto_realsense=not camera_file.exists(),
+        images_dir=data_dir / "images",
+        save_to=camera_file,
+        prefer_live=not use_file_only,
+        use_file_only=use_file_only,
+    )
+
+    samples = load_pose_list(data_dir / "poses.json")
+
+    # 尝试加载 FK（用于从 joints 推算 gripper 位姿）
+    fk = None
+    try:
+        from .d1_fk import load_d1_fk, joint_angles_to_robot_pose
+        fk = load_d1_fk()
+    except Exception:
+        pass
+
+    # ------------------------------------------------------------------
+    # 收集所有有效样本的 (R_gripper2base, t_gripper2base, R_target2cam, t_target2cam)
+    # ------------------------------------------------------------------
+    valid_data: list[
+        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+    ] = []  # (R_g2b, t_g2b, R_t2c, t_t2c, board_origin_in_cam)
+
+    for i, sample in enumerate(samples):
+        # --- 检测标定板位姿 ---
+        img_path = data_dir / "images" / sample.get("image", f"{i:04d}.png")
+        img = cv2.imread(str(img_path))
+        if img is None:
+            continue
+        det = detect_board_pose_from_image(img, K, dist, board)
+        if det is None:
+            continue
+        R_t2c, t_t2c, _ = det
+
+        # --- 提取 gripper->base 位姿 ---
+        R_g2b: np.ndarray | None = None
+        t_g2b: np.ndarray | None = None
+
+        # 方式 1: 直接存储的旋转矩阵 / 平移向量
+        if "R_gripper2base" in sample and "t_gripper2base" in sample:
+            R_g2b = np.asarray(sample["R_gripper2base"], dtype=np.float64).reshape(3, 3)
+            t_g2b = np.asarray(sample["t_gripper2base"], dtype=np.float64).reshape(3, 1)
+        # 方式 2: pose 字段（position + quaternion / euler）
+        elif "pose" in sample and isinstance(sample["pose"], dict):
+            pose = sample["pose"]
+            pos = pose.get("position")
+            quat = pose.get("quaternion")  # [x, y, z, w] 或 [w, x, y, z]
+            if pos is not None and quat is not None:
+                pos = np.asarray(pos, dtype=np.float64).reshape(3, 1)
+                q = np.asarray(quat, dtype=np.float64).reshape(4)
+                # 假设 [x, y, z, w] 格式
+                x, y, z, w = q
+                R_g2b = np.array([
+                    [1 - 2*(y*y + z*z), 2*(x*y - z*w), 2*(x*z + y*w)],
+                    [2*(x*y + z*w), 1 - 2*(x*x + z*z), 2*(y*z - x*w)],
+                    [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x*x + y*y)],
+                ], dtype=np.float64)
+                t_g2b = pos
+        # 方式 3: joints -> FK
+        elif "joints" in sample and fk is not None:
+            try:
+                joints = sample["joints"]
+                q_rad = np.deg2rad(np.asarray(joints[:6], dtype=np.float64))
+                R_fk, t_fk = fk.fk(q_rad)
+                R_g2b = R_fk.astype(np.float64)
+                t_g2b = t_fk.reshape(3, 1).astype(np.float64)
+            except Exception:
+                pass
+
+        if R_g2b is None or t_g2b is None:
+            continue
+
+        valid_data.append((R_g2b, t_g2b, R_t2c, t_t2c, t_t2c.copy()))
+
+    num_valid = len(valid_data)
+    if num_valid < 4:
+        return {
+            "per_sample_residual_mm": [],
+            "mean_residual_mm": float("nan"),
+            "std_residual_mm": float("nan"),
+            "num_valid": num_valid,
+        }
+
+    # ------------------------------------------------------------------
+    # 留一交叉验证
+    # ------------------------------------------------------------------
+    residuals_mm: list[float] = []
+
+    for i in range(num_valid):
+        # 构建 leave-one-out 数据集
+        R_gripper_list = [valid_data[j][0] for j in range(num_valid) if j != i]
+        t_gripper_list = [valid_data[j][1] for j in range(num_valid) if j != i]
+        R_target_list = [valid_data[j][2] for j in range(num_valid) if j != i]
+        t_target_list = [valid_data[j][3] for j in range(num_valid) if j != i]
+
+        # 求解 hand-eye
+        R_cam2gripper, t_cam2gripper = cv2.calibrateHandEye(
+            R_gripper_list, t_gripper_list,
+            R_target_list, t_target_list,
+            method=cv_method,
+        )
+
+        # 用求解结果计算被留出样本的标定板在 base 系位置
+        R_g2b_i, t_g2b_i, R_t2c_i, t_t2c_i, _ = valid_data[i]
+        T_g2b = rt_to_homogeneous(R_g2b_i, t_g2b_i)
+        T_c2g = rt_to_homogeneous(R_cam2gripper, t_cam2gripper)
+        T_t2c = rt_to_homogeneous(R_t2c_i, t_t2c_i)
+
+        # board_in_base = T_g2b @ T_c2g @ T_t2c 的平移部分
+        T_board_base_i = T_g2b @ T_c2g @ T_t2c
+        pos_i = T_board_base_i[:3, 3]
+
+        # 用全部其他样本计算"参考"标定板在 base 系的均值位置
+        other_positions: list[np.ndarray] = []
+        for j in range(num_valid):
+            if j == i:
+                continue
+            R_g2b_j, t_g2b_j, R_t2c_j, t_t2c_j, _ = valid_data[j]
+            T_g2b_j = rt_to_homogeneous(R_g2b_j, t_g2b_j)
+            T_board_j = T_g2b_j @ T_c2g @ T_t2c_j
+            # 注意: 这里用的是从 i 的 leave-out 得到的 T_c2g
+            # 对于 eye-to-hand，标定板固定，所有帧的 board_in_base 应一致
+            T_t2c_j_full = rt_to_homogeneous(R_t2c_j, t_t2c_j)
+            T_board_base_j = T_g2b_j @ T_c2g @ T_t2c_j_full
+            other_positions.append(T_board_base_j[:3, 3])
+
+        mean_pos = np.mean(other_positions, axis=0)
+        residual_m = float(np.linalg.norm(pos_i - mean_pos))
+        residuals_mm.append(residual_m * 1000.0)
+
+    return {
+        "per_sample_residual_mm": residuals_mm,
+        "mean_residual_mm": float(np.mean(residuals_mm)),
+        "std_residual_mm": float(np.std(residuals_mm)),
+        "num_valid": num_valid,
+    }

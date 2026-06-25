@@ -14,7 +14,7 @@ conda activate yolo
 ### 列出设备
 
 ```bash
-cd /home/gy/code/goat_demo/calibate
+cd calibration/calibate
 python tools/get_d455_intrinsics.py --list
 ```
 
@@ -102,7 +102,7 @@ python tools/get_d455_intrinsics.py --serial 260722303031 --width 640 --height 4
 来源：[Unitree 官方 URDF 包](https://oss-global-cdn.unitree.com/static/9b20252a26374d50aa369532657d0143.zip)（`d1_550_description`）
 
 ```bash
-cd /home/gy/code/goat_demo/calibate
+cd calibration/calibate
 python tools/get_d1_urdf.py
 python tools/get_d1_urdf.py --force   # 强制重新下载
 ```
@@ -118,10 +118,7 @@ python tools/get_d1_urdf.py --force   # 强制重新下载
 真机标定/抓取前需编译 D1 通信桥接：
 
 ```bash
-sudo apt install -y cmake build-essential
-export D1_SDK=/home/unitree/d1_sdk    # 官方 SDK 解压路径
-
-cd /home/gy/code/goat_demo
+cd calibration
 ./scripts/build_d1_bridge.sh
 ```
 

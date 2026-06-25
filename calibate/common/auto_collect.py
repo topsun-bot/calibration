@@ -43,18 +43,17 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# mock/仿真 标定 GT（与 D1 URDF FK + 种子位姿自洽）
-_DEFAULT_R = np.array(
+# T_cam2base: 相机在基座系 [0.45, 0.0, 0.80] 位置，俯视工作台。
+# 语义：p_base = T @ p_cam
+DEFAULT_MOCK_T_CAM_BASE = np.array(
     [
-        [0.956, -0.045, 0.290],
-        [0.0, 0.988, 0.154],
-        [-0.294, -0.147, 0.944],
+        [0.0, 0.8637789, -0.50387103, 0.45],
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, -0.50387103, -0.8637789, 0.80],
+        [0.0, 0.0, 0.0, 1.0],
     ],
     dtype=np.float64,
 )
-DEFAULT_MOCK_T_CAM_BASE = np.eye(4)
-DEFAULT_MOCK_T_CAM_BASE[:3, :3] = _DEFAULT_R
-DEFAULT_MOCK_T_CAM_BASE[:3, 3] = [0.30, 0.15, 0.60]
 
 
 class AsyncCameraPreview:

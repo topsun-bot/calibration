@@ -83,18 +83,23 @@ def render_board_for_robot_pose(
     board: BoardConfig | None = None,
     image_size: tuple[int, int] = (640, 480),
 ) -> np.ndarray:
-    """眼在手外：标定板固连夹爪，渲染相机图像。"""
+    """眼在手外：标定板固连夹爪，渲染相机图像。
+
+    参数:
+        robot_pose: FK 输出的末端位姿（位置 + 四元数/欧拉角），表示夹爪在基座系下的位姿。
+        T_cam_base: 4x4 仿真 GT 变换矩阵。
+        T_target_gripper: 4x4，标定板原点相对夹爪 TCP 的偏移（通常为 I）。
+    """
     board = board or BoardConfig()
     from .transforms import pose_to_rt
 
-    R_b2g, t_b2g = pose_to_rt(
+    R_g2b, t_g2b = pose_to_rt(
         robot_pose["position"],
         quaternion=robot_pose.get("quaternion"),
         euler_xyz=robot_pose.get("euler_xyz"),
     )
-    T_b2g = rt_to_homogeneous(R_b2g, t_b2g)
-    T_b2t = T_b2g @ T_target_gripper
-    T_t2c = np.linalg.inv(T_cam_base) @ T_b2t
+    T_g2b = rt_to_homogeneous(R_g2b, t_g2b)
+    T_t2c = np.linalg.inv(T_cam_base) @ T_g2b @ T_target_gripper
     return render_checkerboard_image(
         T_t2c[:3, :3],
         T_t2c[:3, 3],

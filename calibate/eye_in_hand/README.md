@@ -46,7 +46,7 @@ eye_in_hand/
 
 ```bash
 conda activate yolo
-cd /home/gy/code/calibate/eye_in_hand
+cd calibration/calibate/eye_in_hand
 
 export D1_NETWORK_INTERFACE=eth0
 
@@ -154,7 +154,7 @@ python ../tools/get_d455_intrinsics.py \
 
 ```bash
 conda activate yolo
-cd /home/gy/code/calibate/eye_in_hand
+cd calibration/calibate/eye_in_hand
 
 # 正式标定
 python calibrate.py --data-dir data

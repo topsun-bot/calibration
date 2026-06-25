@@ -43,7 +43,7 @@ combined/
 
 ```bash
 conda activate yolo
-cd /home/gy/code/calibate
+cd calibration/calibate
 
 # 确保已运行过 demo 标定
 cd eye_in_hand && python generate_demo_data.py && python calibrate.py && cd ..
@@ -84,10 +84,11 @@ python hand_eye_fusion.py --demo [选项]
 ## 集成到抓取程序
 
 ```python
-import sys
-sys.path.insert(0, "/home/gy/code/calibate")
-
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from combined.hand_eye_fusion import HandEyeFusion
 
 fusion = HandEyeFusion(

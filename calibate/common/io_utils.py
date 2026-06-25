@@ -134,7 +134,7 @@ def _build_calibration_payload(
         "_units": _make_units_block(),
         "timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "software": {
-            "pipeline": "goat_demo",
+            "pipeline": "calibration",
             "git_sha": _try_git_sha(),
             "opencv_version": _try_opencv_version(),
         },
@@ -340,3 +340,58 @@ def validate_calibration_file(path: str | Path) -> dict[str, Any]:
         "R": R.tolist(),
         "t": t.reshape(3).tolist(),
     }
+
+
+def export_static_transform_yaml(
+    result_path: str | Path,
+    output_path: str | Path,
+) -> Path:
+    """导出 ROS2 static_transform_publisher 兼容的 YAML 参数文件。
+
+    根据标定结果生成标准 ROS2 launch 参数格式的 YAML 文件，
+    可直接用于 static_transform_publisher 节点。
+
+    参数
+    ----
+    result_path : 标定结果 JSON 文件路径
+    output_path : 输出 YAML 文件路径
+
+    返回
+    ----
+    Path : 写入的 YAML 文件路径
+    """
+    result_path = Path(result_path)
+    output_path = Path(output_path)
+
+    R, t, meta = load_calibration_result(result_path)
+    quat = _make_ros_quaternion(R)  # [x, y, z, w]
+
+    parent_frame = meta.get("parent_frame", "base_link")
+    child_frame = meta.get("child_frame", "camera_link")
+
+    timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    yaml_content = (
+        f"# Auto-generated static transform from hand-eye calibration\n"
+        f"# Source: {result_path}\n"
+        f"# Generated: {timestamp}\n"
+        f"static_transform_publisher:\n"
+        f"  ros__parameters:\n"
+        f'    frame_id: "{parent_frame}"\n'
+        f'    child_frame_id: "{child_frame}"\n'
+        f"    translation:\n"
+        f"      x: {float(t.flat[0]):.6f}\n"
+        f"      y: {float(t.flat[1]):.6f}\n"
+        f"      z: {float(t.flat[2]):.6f}\n"
+        f"    rotation:\n"
+        f"      x: {quat[0]:.6f}\n"
+        f"      y: {quat[1]:.6f}\n"
+        f"      z: {quat[2]:.6f}\n"
+        f"      w: {quat[3]:.6f}\n"
+    )
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as f:
+        f.write(yaml_content)
+
+    return output_path

@@ -40,7 +40,7 @@ eye_to_hand/
 
 ```bash
 conda activate yolo
-cd /home/gy/code/goat_demo/calibate/eye_to_hand
+cd calibration/calibate/eye_to_hand
 
 # 1) 先确认 D455 能出图（推荐）
 python3 ../../scripts/check_realsense.py
@@ -67,7 +67,7 @@ python auto_calibrate.py
 **整合流水线入口**（标定 + 抓取，推荐）：
 
 ```bash
-cd /home/gy/code/goat_demo
+cd calibration
 python pick_place/run.py calibrate --network eth0
 ```
 
@@ -189,7 +189,7 @@ python ../tools/get_d455_intrinsics.py --from-image data/images/0000.png \
 
 ```bash
 conda activate yolo
-cd /home/gy/code/goat_demo/calibate/eye_to_hand
+cd calibration/calibate/eye_to_hand
 
 python calibrate.py --data-dir data
 python calibrate.py --cols 9 --rows 6 --square-size 0.025
@@ -230,7 +230,7 @@ python verify.py
 ### MuJoCo 仿真测试（无需真机）
 
 ```bash
-cd /home/gy/code/goat_demo
+cd calibration
 ./scripts/run_sim_tests.sh          # 15 项自动化测试
 ./scripts/run_eye_to_hand_demo.sh   # 测试 + 录制 output/eye_to_hand_demo.mp4
 python scripts/record_eye_to_hand_demo.py -o output/eye_to_hand_demo.mp4
@@ -264,7 +264,7 @@ python pick_place/run.py all --class bottle --sim --no-show
     }
   },
   "timestamp_utc": "2026-06-25T10:30:00Z",
-  "software": { "pipeline": "goat_demo", "git_sha": "abc1234", "opencv_version": "4.11.0" },
+  "software": { "pipeline": "calibration", "git_sha": "abc1234", "opencv_version": "4.11.0" },
   "board_config": { "cols": 9, "rows": 6, "square_size_m": 0.025 },
   "intrinsics_sha256": "a1b2c3d4e5f6a7b8",
   "_units": { "length": "meters", "angle": "radians", "quaternion_convention": "xyzw" }

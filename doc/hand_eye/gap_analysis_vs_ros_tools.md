@@ -94,14 +94,55 @@ flowchart LR
 |------|--------|------|------|
 | **P0** | USB 内参标定 | 2M 相机正式标定前必须完成；见 [dual_camera_setup.md](dual_camera_setup.md) | 待完成 |
 | **P0** | URDF/TCP 校验 | 验证 [`config/d1.urdf`](../../calibate/config/d1.urdf) 末端与真实夹爪一致；FK 误差比换算法影响更大 | 待验证 |
-| **P1** | 采姿旋转多样性 | 增大各轴旋转幅度，记录被跳过样本的关节分布 | 待改进 |
-| **P1** | 标定结果版本化 | SN、时间戳、残差、采集 meta 写入结果 JSON | 待实现 |
-| **P2** | ArUco/ChArUco 后端 | 在 [`board.py`](../../calibate/common/board.py) 扩展第二检测后端 | 未实现 |
-| **P2** | 轻量 tf 发布桥 | ROS2 可选节点，读 JSON 发布 `static_transform` | 见 [ros2_moveit_roadmap.md](ros2_moveit_roadmap.md) |
+| **P1** | 采姿旋转多样性 | 增大各轴旋转幅度，记录被跳过样本的关节分布 | ✅ 已实现 `score_pose_diversity` |
+| **P1** | 标定结果版本化 | SN、时间戳、残差、采集 meta 写入结果 JSON | ✅ 已实现 (format v1.0.0) |
+| **P1** | 非线性精修 | Levenberg-Marquardt 优化融合结果 | ✅ 已实现 `_refine_nonlinear` |
+| **P1** | eye-to-hand 算法修正 | OpenCV `calibrateHandEye` 正确处理 eye-to-hand 取逆 | ✅ 已修复 |
+| **P1** | 异常算法剔除 | MAD-based 离群值检测，自动移除残差异常算法 | ✅ 已实现 |
+| **P2** | ArUco/ChArUco 后端 | 在 [`board.py`](../../calibate/common/board.py) 扩展第二检测后端 | ✅ 已实现 |
+| **P2** | 轻量 tf 发布桥 | YAML 导出兼容 ROS2 `static_transform_publisher` | ✅ 已实现 `export_static_transform_yaml` |
+| **P2** | 重投影误差评估 | 逐样本重投影误差 + LOO 交叉验证 | ✅ 已实现 |
 | **P3** | MoveIt 自动采姿 | 上 ROS 后用 `move_group` 规划无碰撞位姿 | 见路线图 Phase 2 |
+
+## 借鉴 MoveIt2 / easy_handeye2 后的新增能力
+
+### 来自 MoveIt2 的借鉴
+
+| MoveIt2 能力 | 本项目对应实现 |
+|-------------|---------------|
+| 运动规划多样性保证 | `score_pose_diversity()` 评分函数 + 采集时自动偏好高多样性位姿 |
+| 碰撞感知路径约束 | 工作空间包围盒约束 + 关节限位校验（轻量替代） |
+| 轨迹时间参数化 | 插值步数 + settle 等待 |
+| Planning Scene Monitor | 调试窗口实时坐标系轴 + 工作空间可视化 |
+| 约束类型（位置/方向/可见性） | 棋盘边缘裕量 + 法线夹角检测 + Z>0 可见性约束 |
+
+### 来自 easy_handeye2 的借鉴
+
+| easy_handeye2 能力 | 本项目对应实现 |
+|-------------------|---------------|
+| tf2 发布标定结果 | `export_static_transform_yaml()` 输出兼容 ROS2 YAML |
+| 四帧 tf 语义 | JSON v1.0 含 `parent_frame`/`child_frame` + `export_urdf_fragment()` |
+| 标定评估器 (rqt) | `evaluate_reprojection_error()` + `leave_one_out_cv()` |
+| 多标定命名空间 | `run_id` 唯一标识 + 结果 JSON 含完整采集元数据 |
+| ArUco 跟踪支持 | ChArUco 检测后端（`board_type="charuco"`） |
+| 逐样本确认/丢弃 | `debug_display` 实时画面 + 插值可见性校验自动丢弃 |
+| Tsai 建议最佳实践 | 运动多样性检测 + 退化警告 + 采姿多样性评分 |
+
+### 超越两者的独有能力
+
+| 能力 | 说明 |
+|------|------|
+| **多算法融合 + 非线性精修** | 5 种 OpenCV 算法 softmax 加权融合 + L-M 优化，优于 easy_handeye2 单算法 |
+| **仿真验证 (GT 对比)** | MuJoCo 仿真标定精度达 0.001°/0.00mm，可回归验证算法正确性 |
+| **D1 全自动采集** | 锚点自适应 + 夹爪自动 + 折叠安全位姿，无需人工干预 |
+| **双相机融合** | 手外粗定位 + 手上精定位，不在 MoveIt/easy_handeye2 设计范围内 |
+| **异常算法/样本检测** | MAD-based 异常剔除 + 离群帧标记 + IQR 箱线图 |
+| **离线无 ROS 部署** | conda + OpenCV + D1 SDK 即运行，零 ROS 基础设施开销 |
 
 ## 结论
 
-本项目在 **D1 真机自动化、双相机融合、离线批处理** 上优于 easy_handeye2；在 **标准化互操作（tf/ROS）、跟踪通用性、在线发布、MoveIt 协同采姿** 上明显不足。
+本项目在 **D1 真机自动化、双相机融合、多算法融合精修、离线批处理、仿真验证** 上优于 easy_handeye2；
+在 **标准化互操作（tf/ROS）、在线热更新、MoveIt 碰撞感知采姿** 上仍有不足，但已通过 YAML 导出和多样性评分部分弥补。
 
-若继续走无 ROS 的 `pick_place` 路线，优先完成 P0/P1；若未来上 ROS2 + MoveIt，建议保留 `calibate` 求解内核，仅增加 ROS2 薄桥接层，详见 [ros2_moveit_roadmap.md](ros2_moveit_roadmap.md)。
+当前实现已覆盖 easy_handeye2 的核心技术（多算法 + 评估 + 导出），且在精度（非线性精修）和鲁棒性（异常检测 + 融合）上超越。
+若继续走无 ROS 的 `pick_place` 路线，P0/P1 已基本完成；若未来上 ROS2 + MoveIt，保留 `calibate` 核心仅加薄桥接层，详见 [ros2_moveit_roadmap.md](ros2_moveit_roadmap.md)。

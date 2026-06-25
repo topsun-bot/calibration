@@ -19,7 +19,7 @@ calibate/
 
 ```bash
 conda activate yolo
-cd /home/gy/code/goat_demo/calibate
+cd calibration/calibate   # 仓库根目录下
 ```
 
 依赖：`opencv-python`、`numpy`、`pyrealsense2`（D455 自动内参）。
@@ -57,7 +57,7 @@ pick_place/run.py calibrate     → 整合项目推荐入口
 
 ```bash
 conda activate yolo
-cd /home/gy/code/goat_demo
+cd calibration   # 仓库根目录
 
 # 整合入口（推荐）
 python pick_place/run.py calibrate --network eth0
@@ -107,4 +107,4 @@ python tools/get_d455_intrinsics.py --from-image eye_to_hand/data/images/0000.pn
 
 详见 [eye_to_hand/README.md](eye_to_hand/README.md#相机内参d455-动态读取) 与 [tools/README.md](tools/README.md)。
 
-设计文档（双相机、ROS2 路线图、与 easy_handeye2/MoveIt 对比）见 [../doc/hand_eye/](../doc/hand_eye/)。
+设计文档见 [../doc/README.md](../doc/README.md)；用户指南见 [../doc/user/quickstart.md](../doc/user/quickstart.md)。

@@ -1,6 +1,6 @@
 # 脚本说明
 
-眼在手外流水线相关的自动化脚本。
+眼在手外流水线相关的自动化脚本。仿真与测试详情见 [doc/user/simulation.md](../doc/user/simulation.md)。
 
 ## run_sim_tests.sh
 

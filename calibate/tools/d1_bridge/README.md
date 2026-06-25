@@ -19,7 +19,7 @@ Python 通过编译好的可执行文件与 Unitree D1 机械臂通信（DDS）�
 ```bash
 sudo apt install -y cmake build-essential git   # 首次需安装
 
-cd /home/gy/code/goat_demo
+cd calibration
 ./scripts/build_d1_bridge.sh
 ```
 
@@ -33,7 +33,7 @@ cd /home/gy/code/goat_demo
 
 ```bash
 python3 calibate/tools/get_d1_sdk.py
-export D1_SDK=/home/gy/code/goat_demo/third_party/d1_sdk
+export D1_SDK=calibration/third_party/d1_sdk   # 或绝对路径
 ./scripts/build_d1_bridge.sh
 ```
 
@@ -47,9 +47,9 @@ export D1_SDK=/home/unitree/d1_sdk
 **手动编译：**
 
 ```bash
-export D1_SDK=/home/unitree/d1_sdk
+export D1_SDK=/path/to/d1_sdk
 
-cd /home/gy/code/goat_demo/calibate/tools/d1_bridge
+cd calibration/calibate/tools/d1_bridge
 mkdir -p build && cd build
 cmake .. -DD1_SDK=$D1_SDK
 make -j
@@ -102,6 +102,6 @@ export D1_NETWORK_INTERFACE=eth0
 2. **d1_read_joints 超时** → 确认 D1 已上电，网卡正确
 3. **臂不动** → 在 D1 上运行 `./multiple_joint_angle_control` 唤醒（见官方文档）
 4. **编译找不到 msg/** → 确认 `D1_SDK` 路径，或从 [Grasp-with-the-Unitree-D1](https://github.com/chen37058/Grasp-with-the-Unitree-D1) 复制 `src/msg/` 到本目录
-5. **路径错误 `calibate/tools` 不存在** → 项目在 `goat_demo/calibate/tools/d1_bridge`，勿用旧路径 `/home/gy/code/calibate/...`
+5. **路径错误** → 项目在 `calibration/calibate/tools/d1_bridge`
 6. **cmake not found** → `sudo apt install -y cmake build-essential`
 7. **D1_SDK 目录不存在** → 运行 `./scripts/build_d1_bridge.sh` 会自动下载；或 `python3 calibate/tools/get_d1_sdk.py`
