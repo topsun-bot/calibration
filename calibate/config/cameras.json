@@ -1,0 +1,22 @@
+{
+  "_comment": "手眼标定双相机配置：眼在手外=固定 RealSense，眼在手上=末端 USB 2M",
+  "eye_to_hand": {
+    "type": "realsense",
+    "model_hint": "D435",
+    "serial": "346122070681",
+    "width": 640,
+    "height": 480,
+    "fps": 30,
+    "auto_bandwidth": true
+  },
+  "eye_in_hand": {
+    "type": "usb",
+    "device": 10,
+    "name_hint": "2M",
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "intrinsics_file": "eye_in_hand/data/camera_intrinsics.json",
+    "warmup_frames": 8
+  }
+}

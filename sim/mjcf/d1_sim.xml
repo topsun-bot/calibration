@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="d1_eye_to_hand_sim">
+  <compiler angle="degree" coordinate="local"/>
+  <option gravity="0 0 -9.81" timestep="0.002"/>
+
+  <visual>
+    <global offwidth="640" offheight="480"/>
+    <quality shadowsize="2048"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512"
+             rgb1="0.2 0.2 0.2" rgb2="0.35 0.35 0.35"/>
+    <material name="grid" texture="grid" texrepeat="8 8"/>
+    <material name="link" rgba="0.75 0.78 0.82 1"/>
+    <material name="board" rgba="0.92 0.92 0.92 1"/>
+    <material name="bottle" rgba="0.2 0.55 0.85 1"/>
+    <material name="place" rgba="0.3 0.75 0.35 0.35"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0.4 0 1.6" dir="-0.2 0 -1" diffuse="1 1 1"/>
+    <geom name="floor" type="plane" size="2 2 0.05" material="grid"/>
+
+    <!-- 眼在手外：固定相机（俯视工作区） -->
+    <body name="camera_mount" pos="0.38 -0.42 0.78" quat="0.953 0.297 0.018 0.057">
+      <camera name="fixed_cam" pos="0 0 0" fovy="58"/>
+    </body>
+
+    <!-- 演示录制：侧视全景 -->
+    <body name="overview_mount" pos="0.05 -0.62 0.48" quat="0.885 0.362 0.115 0.264">
+      <camera name="overview_cam" pos="0 0 0" fovy="52"/>
+    </body>
+
+    <!-- 放置区标记 -->
+    <geom name="place_zone" type="box" pos="0.28 0.12 0.005" size="0.06 0.06 0.005" material="place"/>
+
+    <!-- 待抓取物体（mocap 运动学控制，演示抓取时随夹爪移动） -->
+    <body name="bottle" mocap="true" pos="0.32 0.08 0.075">
+      <geom name="bottle_geom" type="cylinder" size="0.022 0.07" material="bottle" mass="0.08"
+            contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- 简化 6 轴臂 + 夹爪 + 棋盘 -->
+    <body name="base" pos="0 0 0.055">
+      <geom type="cylinder" size="0.05 0.03" material="link"/>
+      <body name="link1" pos="0 0 0.04">
+        <joint name="j0" type="hinge" axis="0 0 1" range="-135 135" damping="1"/>
+        <geom type="capsule" fromto="0 0 0 0 0 0.08" size="0.025" material="link"/>
+        <body name="link2" pos="0 0 0.08">
+          <joint name="j1" type="hinge" axis="0 1 0" range="-90 90" damping="1"/>
+          <geom type="capsule" fromto="0 0 0 0 0 0.12" size="0.022" material="link"/>
+          <body name="link3" pos="0 0 0.12">
+            <joint name="j2" type="hinge" axis="0 1 0" range="-90 90" damping="1"/>
+            <geom type="capsule" fromto="0 0 0 0 0 0.12" size="0.02" material="link"/>
+            <body name="link4" pos="0 0 0.12">
+              <joint name="j3" type="hinge" axis="0 1 0" range="-135 135" damping="1"/>
+              <geom type="capsule" fromto="0 0 0 0 0 0.08" size="0.018" material="link"/>
+              <body name="link5" pos="0 0 0.08">
+                <joint name="j4" type="hinge" axis="0 1 0" range="-90 90" damping="1"/>
+                <geom type="capsule" fromto="0 0 0 0 0 0.06" size="0.016" material="link"/>
+                <body name="link6" pos="0 0 0.06">
+                  <joint name="j5" type="hinge" axis="0 0 1" range="-135 135" damping="1"/>
+                  <geom type="capsule" fromto="0 0 0 0 0 0.05" size="0.014" material="link"/>
+                  <body name="ee" pos="0 0 0.05">
+                    <joint name="j6" type="slide" axis="0 1 0" range="-0.03 0.02" damping="2"/>
+                    <geom name="gripper_l" type="box" pos="0 0.015 0" size="0.008 0.015 0.025" material="link"/>
+                    <geom name="gripper_r" type="box" pos="0 -0.015 0" size="0.008 0.015 0.025" material="link"/>
+                    <!-- 标定板（固连夹爪） -->
+                    <geom name="board" type="box" pos="0.06 0 0" size="0.07 0.05 0.003" material="board"/>
+                    <site name="board_center" pos="0.06 0 0" size="0.005"/>
+                    <site name="ee_tip" pos="0 0 0" size="0.005"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="a_j0" joint="j0" kp="80"/>
+    <position name="a_j1" joint="j1" kp="80"/>
+    <position name="a_j2" joint="j2" kp="80"/>
+    <position name="a_j3" joint="j3" kp="80"/>
+    <position name="a_j4" joint="j4" kp="80"/>
+    <position name="a_j5" joint="j5" kp="80"/>
+    <position name="a_j6" joint="j6" kp="120"/>
+  </actuator>
+</mujoco>

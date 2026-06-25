@@ -1,0 +1,88 @@
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Video ─────────────────────────────────────────────────────────────────────
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.flv
+
+# ── Images (runtime captures & outputs; keep config/patterns chessboard assets)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tif
+*.tiff
+*.webp
+!calibate/config/patterns/**
+
+# ── Model weights & inference artifacts ───────────────────────────────────────
+*.pt
+*.pth
+*.onnx
+*.weights
+*.engine
+*.trt
+*.pb
+*.h5
+*.ckpt
+*.safetensors
+*.tflite
+*.mlmodel
+
+# ── Archives & large blobs ────────────────────────────────────────────────────
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+
+# ── Point clouds / depth / sensor dumps ─────────────────────────────────────────
+*.bag
+*.pcd
+*.ply
+*.npy
+*.npz
+
+# ── Calibration runtime data ───────────────────────────────────────────────────
+**/data/images/
+output/
+calibate/eye_to_hand/output/
+calibate/eye_in_hand/output/
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# ── C/C++ build ───────────────────────────────────────────────────────────────
+build/
+cmake-build-*/
+*.o
+*.so
+*.a
+*.out
+
+# ── IDE / editor / local tools ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+.claude/

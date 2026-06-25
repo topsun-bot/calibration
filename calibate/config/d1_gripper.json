@@ -1,0 +1,12 @@
+{
+  "description": "D1 夹爪 j6 与开口宽度映射。j6 范围约 -40(全开)~20(全闭) 度，请按现场标定微调。",
+  "j6_open_deg": -40.0,
+  "j6_close_deg": 20.0,
+  "max_opening_m": 0.066,
+  "board_thickness_m": 0.003,
+  "grasp_margin_m": 0.010,
+  "grasp_compress_m": 0.002,
+  "min_grasp_width_m": 0.002,
+  "preopen_extra_m": 0.008,
+  "settle_s": 1.5
+}

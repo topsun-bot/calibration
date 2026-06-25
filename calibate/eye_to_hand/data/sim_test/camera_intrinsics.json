@@ -1,0 +1,36 @@
+{
+  "camera_matrix": [
+    [
+      606.744140625,
+      0.0,
+      326.3790588378906
+    ],
+    [
+      0.0,
+      606.3030395507812,
+      247.2223358154297
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "dist_coeffs": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "meta": {
+    "source": "realsense",
+    "model": "distortion.inverse_brown_conrady",
+    "width": 640,
+    "height": 480,
+    "fps": 30,
+    "format": "format.rgb8",
+    "device_name": "Intel RealSense D435I",
+    "serial": "346122070681"
+  }
+}
