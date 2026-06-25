@@ -1,0 +1,19 @@
+# Core
+numpy>=2.0
+scipy>=1.12
+opencv-python-headless>=4.10
+matplotlib>=3.8
+
+# MuJoCo simulation
+mujoco>=3.0
+
+# RealSense D435i
+pyrealsense2>=2.50
+
+# YOLO detection
+ultralytics>=8.0
+torch>=2.0
+torchvision>=0.15
+
+# Testing
+pytest>=8.0

@@ -1,0 +1,48 @@
+# D1 标定 + 抓取系统 Docker Compose
+#
+# 用法:
+#   docker compose up calibration   # 仿真标定测试
+#   docker compose run --rm hw      # 真机模式 (需要 USB 透传)
+#   docker compose run --rm test    # 运行测试
+
+services:
+  # 仿真模式 (无硬件依赖)
+  calibration:
+    build: .
+    image: calibration
+    environment:
+      - MUJOCO_GL=egl
+      - PYTHONPATH=/app:/app/calibate:/app/get_object
+    volumes:
+      - ./output:/app/output
+    command: ["pick_place/run.py", "calibrate", "--sim", "--no-show"]
+
+  # 真机模式 (USB 透传)
+  hw:
+    build: .
+    image: calibration
+    privileged: true
+    environment:
+      - MUJOCO_GL=egl
+      - PYTHONPATH=/app:/app/calibate:/app/get_object
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+      - /dev/video8:/dev/video8    # RealSense D435i RGB
+      - /dev/video10:/dev/video10  # 2M USB 相机
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./output:/app/output
+      - ./calibate/eye_to_hand/output:/app/calibate/eye_to_hand/output
+    devices:
+      - /dev/video8:/dev/video8
+      - /dev/video10:/dev/video10
+    command: ["pick_place/run.py", "--help"]
+
+  # 测试
+  test:
+    build: .
+    image: calibration
+    environment:
+      - MUJOCO_GL=egl
+      - PYTHONPATH=/app:/app/calibate:/app/get_object
+    command: ["-m", "pytest", "tests/", "-v", "--tb=short"]

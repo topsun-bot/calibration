@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.git/
+output/*.mp4
+output/*.avi
+gecaoji/
+gecaoji.tar.gz
+third_party/
+.claude/
+*.tar.gz

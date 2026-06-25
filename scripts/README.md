@@ -1,6 +1,26 @@
 # 脚本说明
 
-眼在手外流水线相关的自动化脚本。仿真与测试详情见 [doc/user/simulation.md](../doc/user/simulation.md)。
+自动化测试、摄像头检查与演示录制脚本。
+
+## check_cameras.py
+
+检测所有可用摄像头（USB V4L2 + RealSense），验证取帧能力。
+
+```bash
+python scripts/check_cameras.py            # 检测报告
+python scripts/check_cameras.py --save     # 保存测试帧到 output/
+```
+
+输出示例：
+```
+[1] USB V4L2 相机:
+   video10: 2M: 2M          640x480@30fps
+[2] Intel RealSense:
+   Intel RealSense D435I  SN=346122070681  USB=2.1
+   → V4L2 回退 (video8): ✅
+
+✅ 双摄像头就绪，可执行手眼标定
+```
 
 ## run_sim_tests.sh
 
@@ -8,7 +28,7 @@
 
 ```bash
 ./scripts/run_sim_tests.sh
-./scripts/run_sim_tests.sh tests/test_eye_to_hand.py   # 仅跑指定测试
+./scripts/run_sim_tests.sh tests/test_sim_pipeline.py   # 仅跑指定测试
 ```
 
 ## run_eye_to_hand_demo.sh
@@ -38,4 +58,17 @@ python scripts/record_eye_to_hand_demo.py -o output/my_demo.mp4 --poses 8 --clas
 
 视频为双画面：侧视全景（overview_cam）+ 固定相机（眼在手外 fixed_cam）。
 
-Phase 3 抓取阶段：瓶子为 mocap 运动学体，夹爪闭合（j6 > -20°）后自动附着并随臂移动至放置区，松开夹爪后释放。录制脚本会校验 `bottle attached OK` 后才输出视频。
+## check_realsense.py
+
+快速验证 RealSense 连接状态（需 pyrealsense2）。
+
+```bash
+python scripts/check_realsense.py
+```
+
+## Docker 内运行
+
+```bash
+docker compose run --rm test                    # 全部测试
+docker run --rm calibration -m pytest tests/ -q # 等效
+```

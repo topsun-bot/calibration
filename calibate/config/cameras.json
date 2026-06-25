@@ -1,20 +1,27 @@
 {
-  "_comment": "手眼标定双相机配置：眼在手外=固定 RealSense，眼在手上=末端 USB 2M",
+  "_comment": "手眼标定双相机配置：眼在手外=固定 RealSense D435i，眼在手上=末端 USB 2M",
   "eye_to_hand": {
     "type": "realsense",
     "model_hint": "D435",
     "serial": "346122070681",
     "width": 640,
     "height": 480,
-    "fps": 30,
-    "auto_bandwidth": true
+    "fps": 6,
+    "auto_bandwidth": true,
+    "_note": "USB 2.1 带宽受限，pyrealsense2 pipeline 可能超时",
+    "v4l2_fallback": {
+      "device": 8,
+      "width": 640,
+      "height": 480,
+      "_note": "当 pyrealsense2 不可用时，用 V4L2 后端 video8 取 RGB 帧"
+    }
   },
   "eye_in_hand": {
     "type": "usb",
     "device": 10,
     "name_hint": "2M",
-    "width": 1280,
-    "height": 720,
+    "width": 640,
+    "height": 480,
     "fps": 30,
     "intrinsics_file": "eye_in_hand/data/camera_intrinsics.json",
     "warmup_frames": 8
