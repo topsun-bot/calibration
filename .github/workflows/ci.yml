@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: lint-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      # Headless MuJoCo on GitHub-hosted runners (no GPU).
+      MUJOCO_GL: osmesa
+      MPLBACKEND: Agg
+      PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/calibate:${{ github.workspace }}/get_object
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install system libraries (OpenCV + MuJoCo OSMesa)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 \
+            libglib2.0-0 \
+            libgomp1 \
+            libosmesa6
+
+      - name: Install software-test Python deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Compile project sources
+        run: |
+          python -m compileall -q \
+            calibate get_object pick_place sim tests scripts
+
+      - name: Ruff (syntax / undefined names)
+        run: |
+          ruff check calibate get_object pick_place sim tests scripts
+
+      - name: Import core packages
+        run: |
+          python -c "
+          from common.hand_eye_solve import calibrate_fused
+          from common.transforms import transform_points
+          from common.io_utils import generate_run_id
+          from common.board import BoardConfig
+          from pick_place.d1_ik import D1InverseKinematics
+          from sim.sim_calibration import _compute_rotation_error_deg
+          print('core imports ok')
+          "
+
+      - name: Pytest (skip RealSense / USB / GPU hardware)
+        run: python -m pytest tests/ -v --tb=short -m "not hardware"
