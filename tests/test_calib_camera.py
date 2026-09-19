@@ -62,6 +62,14 @@ def test_usb_intrinsics_file_only(tmp_path):
     assert np.allclose(K, K2)
 
 
+def test_yolo_detector_skips_ultralytics_when_load_model_false():
+    from yolo3d.detector import YOLO3DDetector
+
+    det = YOLO3DDetector(load_model=False)
+    assert det.model is None
+    assert det.conf == 0.5
+
+
 def test_list_v4l2_devices():
     from common.usb_camera_capture import list_v4l2_devices
 
@@ -73,8 +81,15 @@ def test_list_v4l2_devices():
         assert "width" in d
 
 
+@pytest.mark.hardware
 def test_create_realsense_eye_to_hand():
+    """Needs a connected RealSense (or V4L2 fallback). Skipped on GitHub Actions."""
+    pytest.importorskip("pyrealsense2")
+    from common.realsense import is_realsense_available
     from common.calib_camera import create_calib_camera
+
+    if not is_realsense_available():
+        pytest.skip("RealSense camera not connected")
 
     cam = create_calib_camera(
         calibration_type="eye_to_hand",
@@ -92,7 +107,9 @@ def test_create_realsense_eye_to_hand():
         cam.close()
 
 
+@pytest.mark.hardware
 def test_create_usb_eye_in_hand_with_saved_intrinsics(tmp_path):
+    """Needs the 2M USB wrist camera. Skipped on GitHub Actions."""
     from common.calib_camera import create_calib_camera
     from common.realsense import save_camera_intrinsics
 

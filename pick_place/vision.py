@@ -46,18 +46,25 @@ class EyeToHandVision:
         self.T_cam_base = rt_to_homogeneous(R, t)
         self.calib_meta = meta
         self.sim_env = sim_env
-        self.detector = YOLO3DDetector(
-            model_path=model_path,
-            conf=conf,
-            device=device,
-        )
         if sim_env is not None:
             from sim.backends import SimDetectionStub, SimPickCamera
 
+            # Skip ultralytics/torch so MuJoCo CI can run without GPU or YOLO weights.
+            self.detector = YOLO3DDetector(
+                model_path=model_path,
+                conf=conf,
+                device=device,
+                load_model=False,
+            )
             self.camera = SimPickCamera(sim_env)
             self.detector.model = SimDetectionStub(sim_env)
             self.T_cam_base = sim_env.T_cam_base_render.copy()
         else:
+            self.detector = YOLO3DDetector(
+                model_path=model_path,
+                conf=conf,
+                device=device,
+            )
             self.camera = RealSenseCamera(
                 width=camera_width,
                 height=camera_height,

@@ -89,7 +89,10 @@ def demo_data_dir():
 def test_run_all_sim_integration(tmp_path):
     """pick_place/run.py all --sim 应无交互完成标定+抓取。"""
     pytest.importorskip("mujoco")
-    env = {"MUJOCO_GL": "egl"}
+    import os
+
+    # Keep the runner backend (osmesa on CI). Do not force EGL.
+    env = {"MUJOCO_GL": os.environ.get("MUJOCO_GL", "osmesa")}
     proc = subprocess.run(
         [
             PY,

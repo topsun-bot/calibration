@@ -33,13 +33,16 @@ class YOLO3DDetector:
         conf: float = 0.5,
         device: str | None = None,
         depth_percentile: float = 20.0,
+        load_model: bool = True,
     ) -> None:
-        from ultralytics import YOLO
-
-        self.model = YOLO(model_path)
+        self.model = None
         self.conf = conf
         self.depth_percentile = depth_percentile
         self.device = device or ("cuda" if self._has_cuda() else "cpu")
+        if load_model:
+            from ultralytics import YOLO
+
+            self.model = YOLO(model_path)
 
     @staticmethod
     def _has_cuda() -> bool:

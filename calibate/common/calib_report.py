@@ -658,7 +658,6 @@ def leave_one_out_cross_validation(
                 continue
             R_g2b_j, t_g2b_j, R_t2c_j, t_t2c_j, _ = valid_data[j]
             T_g2b_j = rt_to_homogeneous(R_g2b_j, t_g2b_j)
-            T_board_j = T_g2b_j @ T_c2g @ T_t2c_j
             # 注意: 这里用的是从 i 的 leave-out 得到的 T_c2g
             # 对于 eye-to-hand，标定板固定，所有帧的 board_in_base 应一致
             T_t2c_j_full = rt_to_homogeneous(R_t2c_j, t_t2c_j)

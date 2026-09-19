@@ -70,7 +70,7 @@ class RealSenseCapture:
         # 与 get_object 一致默认 10s；USB2 放宽到 30s
         return 30000 if is_usb2(self._bandwidth.usb_type) else 10000
 
-    def _device_usb_type(self, dev: "rs.device") -> str:
+    def _device_usb_type(self, dev: Any) -> str:
         try:
             return dev.get_info(self.rs.camera_info.usb_type_descriptor)
         except Exception:
